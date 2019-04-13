@@ -1,0 +1,10 @@
+- key: ebpf
+  title: "ebpf"
+  release: beta
+  description: >
+    ebpf module
+  fields:
+    - name: ebpf
+      type: group
+      description: >
+      fields:

@@ -1,0 +1,9 @@
+- name: collector
+  type: group
+  description: >
+    collector
+  fields:
+    - name: example
+      type: keyword
+      description: >
+        Example field

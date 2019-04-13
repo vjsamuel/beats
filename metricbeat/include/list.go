@@ -60,6 +60,8 @@ import (
 	_ "github.com/elastic/beats/metricbeat/module/docker/network"
 	_ "github.com/elastic/beats/metricbeat/module/dropwizard"
 	_ "github.com/elastic/beats/metricbeat/module/dropwizard/collector"
+	_ "github.com/elastic/beats/metricbeat/module/ebpf"
+	_ "github.com/elastic/beats/metricbeat/module/ebpf/collector"
 	_ "github.com/elastic/beats/metricbeat/module/elasticsearch"
 	_ "github.com/elastic/beats/metricbeat/module/elasticsearch/ccr"
 	_ "github.com/elastic/beats/metricbeat/module/elasticsearch/cluster_stats"

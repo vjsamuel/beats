@@ -1,0 +1,6 @@
+- module: ebpf
+  metricsets: ["collector"]
+  enabled: false
+  period: 10s
+  hosts: ["localhost"]
+
