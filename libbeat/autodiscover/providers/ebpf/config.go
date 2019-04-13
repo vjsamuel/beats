@@ -14,14 +14,20 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-
-package autodiscover
+package ebpf
 
 import (
-	// include all metricbeat specific builders
-	_ "github.com/elastic/beats/metricbeat/autodiscover/builder/hints"
-	_ "github.com/elastic/beats/metricbeat/autodiscover/builder/ebpf"
-
-	// include all metricbeat specific appenders
-	_ "github.com/elastic/beats/metricbeat/autodiscover/appender/kubernetes/token"
+	"github.com/elastic/beats/libbeat/autodiscover/template"
+	"github.com/elastic/beats/libbeat/common"
 )
+
+type Config struct {
+	HintsEnabled bool                    `config:"hints.enabled"`
+	Builders     []*common.Config        `config:"builders"`
+	Appenders    []*common.Config        `config:"appenders"`
+	Templates    template.MapperSettings `config:"templates"`
+}
+
+func defaultConfig() Config {
+	return Config{}
+}
