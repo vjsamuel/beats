@@ -19,8 +19,11 @@ package dissect
 
 import (
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 type field interface {
@@ -29,6 +32,7 @@ type field interface {
 	Ordinal() int
 	Length() int
 	Key() string
+	DataType() string
 	ID() int
 	Apply(b string, m Map)
 	String() string
@@ -37,11 +41,37 @@ type field interface {
 }
 
 type baseField struct {
-	id      int
-	key     string
-	ordinal int
-	length  int
-	greedy  bool
+	id       int
+	key      string
+	ordinal  int
+	length   int
+	greedy   bool
+	dataType string
+}
+
+type dataType uint8
+
+// List of dataTypes.
+const (
+	unset dataType = iota
+	Integer
+	Long
+	Float
+	Double
+	String
+	Boolean
+	IP
+)
+
+var dataTypeNames = map[string]dataType{
+	"[unset]": unset,
+	"integer": Integer,
+	"long":    Long,
+	"float":   Float,
+	"double":  Double,
+	"string":  String,
+	"boolean": Boolean,
+	"ip":      IP,
 }
 
 func (f baseField) IsGreedy() bool {
@@ -63,6 +93,9 @@ func (f baseField) Length() int {
 func (f baseField) Key() string {
 	return f.key
 }
+func (f baseField) DataType() string {
+	return f.dataType
+}
 
 func (f baseField) ID() int {
 	return f.id
@@ -77,7 +110,7 @@ func (f baseField) IsFixedLength() bool {
 }
 
 func (f baseField) String() string {
-	return fmt.Sprintf("field: %s, ordinal: %d, greedy: %v", f.key, f.ordinal, f.IsGreedy())
+	return fmt.Sprintf("field: %s, ordinal: %d, greedy: %v, dataType: %s", f.key, f.ordinal, f.IsGreedy(), f.DataType())
 }
 
 // normalField is a simple key reference like this: `%{key}`
@@ -90,8 +123,56 @@ type normalField struct {
 	baseField
 }
 
+// strToInt is a helper to interpret a string as either base 10 or base 16.
+func strToInt(s string, bitSize int) (int64, error) {
+	base := 10
+	if strings.HasPrefix(s, "0x") || strings.HasPrefix(s, "0X") {
+		// strconv.ParseInt will accept the '0x' or '0X` prefix only when base is 0.
+		base = 0
+	}
+	return strconv.ParseInt(s, base, bitSize)
+}
+
+func transformType(typ dataType, value string) (interface{}, error) {
+	switch typ {
+	case String:
+		return fmt.Sprintf("%v", value), nil
+	case Long:
+		return strToInt(value, 64)
+	case Integer:
+		i, err := strToInt(value, 32)
+		return int32(i), err
+	case Float:
+		f, err := strconv.ParseFloat(value, 32)
+		return float32(f), err
+	case Double:
+		d, err := strconv.ParseFloat(value, 64)
+		return float64(d), err
+	case Boolean:
+		return strconv.ParseBool(value)
+	case IP:
+		if net.ParseIP(value) != nil {
+			return value, nil
+		}
+		return "", errors.New("value is not a valid IP address")
+	default:
+		return value, nil
+	}
+}
+
 func (f normalField) Apply(b string, m Map) {
-	m[f.Key()] = b
+	if len(f.dataType) == 0 {
+		m[f.Key()] = b
+	} else {
+		if dt, ok := dataTypeNames[f.dataType]; ok {
+			value, err := transformType(dt, b)
+			if err == nil {
+				m[f.Key()] = value
+			} else {
+				errors.Errorf("%s\n", err)
+			}
+		}
+	}
 }
 
 // skipField is an skip field without a name like this: `%{}`, this is often used to
@@ -161,7 +242,7 @@ type indirectField struct {
 func (f indirectField) Apply(b string, m Map) {
 	v, ok := m[f.Key()]
 	if ok {
-		m[v] = b
+		m[v.(string)] = b
 		return
 	}
 }
@@ -186,7 +267,7 @@ type appendField struct {
 func (f appendField) Apply(b string, m Map) {
 	v, ok := m[f.Key()]
 	if ok {
-		m[f.Key()] = v + f.JoinString() + b
+		m[f.Key()] = v.(string) + f.JoinString() + b
 		return
 	}
 	m[f.Key()] = b
@@ -273,6 +354,21 @@ func newIndirectField(id int, key string, length int) indirectField {
 }
 
 func newNormalField(id int, key string, ordinal int, length int, greedy bool) normalField {
+	parts := strings.Split(key, "|")
+	if len(parts) > 1 {
+		return normalField{
+			baseField{
+				id:       id,
+				key:      parts[0],
+				ordinal:  ordinal,
+				length:   length,
+				greedy:   greedy,
+				dataType: parts[1],
+			},
+		}
+	} else {
+		key = parts[0]
+	}
 	return normalField{
 		baseField{
 			id:      id,
