@@ -39,12 +39,12 @@ type node struct {
 	config  *Config
 	metagen metadata.MetaGen
 	logger  *logp.Logger
-	publish func(bus.Event)
+	publish func([]bus.Event)
 	watcher kubernetes.Watcher
 }
 
 // NewNodeEventer creates an eventer that can discover and process node objects
-func NewNodeEventer(uuid uuid.UUID, cfg *common.Config, client k8s.Interface, publish func(event bus.Event)) (Eventer, error) {
+func NewNodeEventer(uuid uuid.UUID, cfg *common.Config, client k8s.Interface, publish func(event []bus.Event)) (Eventer, error) {
 	logger := logp.NewLogger("autodiscover.node")
 
 	config := defaultConfig()
@@ -64,8 +64,9 @@ func NewNodeEventer(uuid uuid.UUID, cfg *common.Config, client k8s.Interface, pu
 	logger.Debugf("Initializing a new Kubernetes watcher using node: %v", config.Node)
 
 	watcher, err := kubernetes.NewWatcher(client, &kubernetes.Node{}, kubernetes.WatchOptions{
-		SyncTimeout: config.SyncPeriod,
-		Node:        config.Node,
+		SyncTimeout:  config.SyncPeriod,
+		Node:         config.Node,
+		HonorReSyncs: true,
 	}, nil)
 
 	if err != nil {
@@ -187,7 +188,7 @@ func (n *node) emit(node *kubernetes.Node, flag string) {
 			"kubernetes": meta,
 		},
 	}
-	n.publish(event)
+	n.publish([]bus.Event{event})
 }
 
 func getAddress(node *kubernetes.Node) string {

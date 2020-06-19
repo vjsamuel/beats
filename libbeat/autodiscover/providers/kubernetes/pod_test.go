@@ -392,7 +392,6 @@ func TestEmitEvent(t *testing.T) {
 			Expected: bus.Event{
 				"start":    true,
 				"host":     "127.0.0.1",
-				"port":     0,
 				"id":       cid,
 				"provider": UUID,
 				"kubernetes": common.MapStr{
@@ -526,7 +525,6 @@ func TestEmitEvent(t *testing.T) {
 				"stop":     true,
 				"host":     "",
 				"id":       cid,
-				"port":     0,
 				"provider": UUID,
 				"kubernetes": common.MapStr{
 					"container": common.MapStr{
@@ -595,7 +593,6 @@ func TestEmitEvent(t *testing.T) {
 			Expected: bus.Event{
 				"stop":     true,
 				"host":     "127.0.0.1",
-				"port":     0,
 				"id":       cid,
 				"provider": UUID,
 				"kubernetes": common.MapStr{

@@ -66,6 +66,8 @@ type WatchOptions struct {
 	Node string
 	// Namespace is used for filtering watched resource to given namespace, use "" for all namespaces
 	Namespace string
+	// HonorReSyncs allows resync events to be requeued on the worker
+	HonorReSyncs bool
 }
 
 type item struct {
@@ -122,8 +124,15 @@ func NewWatcher(client kubernetes.Interface, resource Resource, opts WatchOption
 			old, _ := accessor.ResourceVersion(o.(runtime.Object))
 			new, _ := accessor.ResourceVersion(n.(runtime.Object))
 
-			// Only enqueue changes that have a different resource versions to avoid processing resyncs.
-			if old != new {
+			// If the resource version of the old and new object are the same then it's a resync event. Enqueue the
+			// object as an add event. The RunnerFactory would make sure that config of an already running module
+			// isn't respawned. If the version is different then enqueue as an update so that the module goes through
+			// a stop/start workflow.
+			if old == new {
+				if opts.HonorReSyncs {
+					w.enqueue(n, add)
+				}
+			} else {
 				w.enqueue(n, update)
 			}
 		},
