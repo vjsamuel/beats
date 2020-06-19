@@ -300,7 +300,10 @@ func (p *pod) emitEvents(pod *kubernetes.Pod, flag string, containers []kubernet
 		}
 	}
 
-	emitted := 0
+	var (
+		emitted   = 0
+		eventList = make([][]bus.Event, 0)
+	)
 	// Emit container and port information
 	for _, c := range containers {
 		// If it doesn't have an ID, container doesn't exist in
@@ -366,7 +369,9 @@ func (p *pod) emitEvents(pod *kubernetes.Pod, flag string, containers []kubernet
 			events = append(events, event)
 			emitted++
 		}
-		p.publish(events)
+		if len(events) != 0 {
+			eventList = append(eventList, events)
+		}
 	}
 
 	// Finally publish a pod level event so that hints that have no exposed ports can get processed.
@@ -395,6 +400,10 @@ func (p *pod) emitEvents(pod *kubernetes.Pod, flag string, containers []kubernet
 			},
 		}
 		p.publish([]bus.Event{event})
+	}
 
+	// Ensure that the pod level event is published first to avoid pod metadata overriding a valid container metadata
+	for _, events := range eventList {
+		p.publish(events)
 	}
 }
